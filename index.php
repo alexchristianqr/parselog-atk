@@ -1,6 +1,7 @@
 <?php
 
 ini_set('memory_limit', '1024M');
+
 define('BASE_PATH', 'queue_rescue_compacted');
 
 //Obtener conexion PDO
@@ -67,10 +68,10 @@ function validateDataFile()
             $newTotalLinesFile = (int)$dataCdr->totalLinesBD + (int)$totalLinesFile;//
             $totalLinesBD = 0;
             if($totalLinesBD < $newTotalLinesFile){
-                processDataFile($newTotalLinesFile, $totalLinesBD, $path_file);
+                processDataFile($path_file);
             }
         }else{
-            echo 'No existe el archivo ' . $filename;
+            echo 'No existe el archivo en el path: ' . $path_file."\n";
         }
     }catch(Exception $e){
         return die($e->getMessage());
@@ -78,49 +79,30 @@ function validateDataFile()
 }
 
 //Procesar data del archivo
-function processDataFile($newTotalLinesFile, $totalLinesBD, $path)
+function processDataFile($path)
 {
     try{
         $fileOpen = fopen($path, "r");
         while(!feof($fileOpen)){//Recorrer el archivo
             $dataFile = fgets($fileOpen, 4096);//Archivo fisico
-            $dataFile = rtrim($dataFile);
+            $dataFile = rtrim($dataFile);//Eliminar espacios vacios
             $lines[] = $dataFile;//Obtener lineas
-//            if($countLineInit > $totalLinesBD){
-//                if(strlen($dataFile) != 0){
-//                    $arrayDataFile = explode("|", $countLineInit . '|' . $dataFile);//Obtenemos el arreglo de data del archivo
-                    //Start
-                    $arrayDataFile = explode('|', $dataFile);
-//                    var_dump($arrayDataFile);
-                    $total = count($arrayDataFile) - 1;//5
-                    while($total < 9){
-                        $arrayDataFile[$total + 1] = '';
-                        $total = $total + 1;
-                    }
-//                    var_dump($arrayDataFile);
-                    list ($date, $uniqueid, $qname, $qagent, $qevent, $info1, $info2, $info3, $info4, $info5) = $arrayDataFile;
-//                    var_dump($qagent);
-                    //End
-//                    if($countLineInit < $newTotalLinesFile){
-                        $qname_id = selectOrCreateQname($qname);
-                        echo $qagent." \n";
-                        $qagent_id = selectOrCreateQagent($qagent);
-                        $qevent_id = selectOrCreateQevent($qevent);
-                        $datetime = strftime("%Y-%m-%d %H:%M:%S", $date);
-//                        var_dump(selectOrCreateQevent($qevent));
-//                        if($qagent_id <> -1) {
-                            $resp = insert("insert into queue_stats (uniqueid,datetime,qname,qagent,qevent,info1,info2,info3,info4,info5)
-                                         values(?,?,?,?,?,?,?,?,?,?)", [$uniqueid, $datetime, $qname_id, $qagent_id, $qevent_id, $info1, $info2, $info3, $info4, $info5]);
-                            if($resp){
-                                echo "inserted table queue_stats $uniqueid \n";
-                            }
-//                        }
-//                    }
-//                }
-//            }
-//            if($dataFile){
-//                $countLineInit = $countLineInit + 1;
-//            }
+            $arrayDataFile = explode('|', $dataFile);//Devolver un array por cada linea en el archivo
+            $total = count($arrayDataFile) - 1;//5
+            while($total < 9){//Recorrer el archivo completando las posiciones que faltan y deben ser 8 en la posicion 0
+                $arrayDataFile[$total + 1] = '';
+                $total = $total + 1;
+            }
+            //Crear una lista del arreglo obtenido del archivo
+            list ($date, $uniqueid, $qname, $qagent, $qevent, $info1, $info2, $info3, $info4, $info5) = $arrayDataFile;
+            $qname_id = selectOrCreateQname($qname);
+            $qagent_id = selectOrCreateQagent($qagent);
+            $qevent_id = selectOrCreateQevent($qevent);
+            $datetime = strftime("%Y-%m-%d %H:%M:%S", $date);
+            $resp = insert("insert into queue_stats (uniqueid,datetime,qname,qagent,qevent,info1,info2,info3,info4,info5) values(?,?,?,?,?,?,?,?,?,?)", [$uniqueid, $datetime, $qname_id, $qagent_id, $qevent_id, $info1, $info2, $info3, $info4, $info5]);
+            if($resp){
+                echo "inserted table queue_stats $uniqueid \n";
+            }
         }
         fclose($fileOpen);
     }catch(Exception $e){
@@ -128,6 +110,7 @@ function processDataFile($newTotalLinesFile, $totalLinesBD, $path)
     }
 }
 
+//Funcion para consultar o crear en la tabla qname
 function selectOrCreateQname($qname)
 {
     try{
@@ -147,6 +130,7 @@ function selectOrCreateQname($qname)
     }
 }
 
+//Funcion para consultar o crear en la tabla qagent
 function selectOrCreateQagent($qagent)
 {
     try{
@@ -166,6 +150,7 @@ function selectOrCreateQagent($qagent)
     }
 }
 
+//Funcion para consultar o crear en la tabla qevent
 function selectOrCreateQevent($qevent)
 {
     try{
